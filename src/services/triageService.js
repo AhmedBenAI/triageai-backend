@@ -86,7 +86,7 @@ export async function runTriagePipeline(ticketText, options = {}) {
   const totalCostUsd = calculateCost(totalInputTokens, totalOutputTokens, model);
 
   // Record to in-memory metrics store
-  recordTicket({ latencyMs: totalLatencyMs, stages, classification, evaluation });
+  recordTicket({ latencyMs: totalLatencyMs, stages, classification, evaluation, costUsd: totalCostUsd });
 
   logger.info(`Pipeline completed`, {
     ticketId,

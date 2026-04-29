@@ -29,7 +29,7 @@ export function calculateCost(inputTokens, outputTokens, model = "openai") {
   );
 }
 
-export function recordTicket({ latencyMs, stages, classification, evaluation }) {
+export function recordTicket({ latencyMs, stages, classification, evaluation, costUsd }) {
   metrics.totalTickets += 1;
 
   // Tokens & cost
@@ -41,7 +41,7 @@ export function recordTicket({ latencyMs, stages, classification, evaluation }) 
   }
   metrics.totalInputTokens += ticketInputTokens;
   metrics.totalOutputTokens += ticketOutputTokens;
-  metrics.totalCostUsd += calculateCost(ticketInputTokens, ticketOutputTokens);
+  metrics.totalCostUsd += costUsd != null ? costUsd : calculateCost(ticketInputTokens, ticketOutputTokens);
 
   // Latency
   metrics.latencies.push(latencyMs);

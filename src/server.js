@@ -99,6 +99,7 @@ for (const t of savedTickets) {
     },
     classification: { category: t.category, priority: t.priority },
     evaluation: { flag: t.flagged === 1, overall: t.overall_score },
+    costUsd: t.total_cost_usd,
   });
 }
 if (savedTickets.length > 0) {
