@@ -1,74 +1,86 @@
+import { pipeline, env } from "@xenova/transformers";
+import path from "path";
+import { fileURLToPath } from "url";
 import { KNOWLEDGE_BASE } from "../config/knowledgeBase.js";
 import { logger } from "../utils/logger.js";
 
-/**
- * Tokenise text into meaningful words (length >= 3, remove stopwords).
- */
-const STOPWORDS = new Set([
-  "the", "and", "for", "are", "but", "not", "you", "all", "can", "has",
-  "her", "was", "one", "our", "out", "day", "get", "has", "him", "his",
-  "how", "its", "may", "who", "did", "let", "put", "too", "use", "way",
-  "she", "had", "have", "been", "that", "this", "with", "from", "they",
-  "will", "your", "been", "does", "into", "more", "also", "when", "what",
-  "then", "than", "here", "just", "over", "such", "very", "well", "were",
-]);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+env.cacheDir = path.join(__dirname, "../../data/model-cache");
+env.allowLocalModels = false;
 
-function tokenise(text) {
-  return text
-    .toLowerCase()
-    .split(/\W+/)
-    .filter((w) => w.length >= 3 && !STOPWORDS.has(w));
+const MODEL = "Xenova/all-MiniLM-L6-v2";
+
+let embedder = null;
+let articleEmbeddings = null; // cached on first use
+
+async function getEmbedder() {
+  if (!embedder) {
+    logger.info("Loading embedding model…", { model: MODEL });
+    embedder = await pipeline("feature-extraction", MODEL);
+    logger.info("Embedding model ready");
+  }
+  return embedder;
+}
+
+async function embed(text) {
+  const model = await getEmbedder();
+  const out = await model(text, { pooling: "mean", normalize: true });
+  return Array.from(out.data);
+}
+
+function cosineSimilarity(a, b) {
+  // vectors are already L2-normalised so similarity == dot product
+  let dot = 0;
+  for (let i = 0; i < a.length; i++) dot += a[i] * b[i];
+  return dot;
+}
+
+async function getArticleEmbeddings() {
+  if (articleEmbeddings) return articleEmbeddings;
+
+  logger.info(`Computing embeddings for ${KNOWLEDGE_BASE.length} KB articles…`);
+  articleEmbeddings = await Promise.all(
+    KNOWLEDGE_BASE.map(async (doc) => ({
+      ...doc,
+      embedding: await embed(`${doc.title}. ${doc.content}`),
+    }))
+  );
+  logger.info("KB article embeddings cached");
+  return articleEmbeddings;
 }
 
 /**
- * Score a document against query tokens.
- * Weights: tag match = 3, title match = 2, content match = 1
+ * Pre-warm the embedder and cache article embeddings on server startup.
+ * Call once from server.js — non-blocking (fire and forget).
  */
-function scoreDoc(doc, queryTokens) {
-  let score = 0;
-  const titleTokens = tokenise(doc.title);
-  const contentTokens = tokenise(doc.content);
-  const tagTokens = doc.tags || [];
-
-  for (const qt of queryTokens) {
-    for (const tag of tagTokens) {
-      if (tag.includes(qt) || qt.includes(tag)) score += 3;
-    }
-    for (const tt of titleTokens) {
-      if (tt === qt) score += 2;
-    }
-    for (const ct of contentTokens) {
-      if (ct === qt) score += 1;
-    }
-  }
-  return score;
+export async function initEmbedder() {
+  await getArticleEmbeddings();
 }
 
 /**
- * Retrieve top-K relevant documents from the knowledge base.
- * @param {string} ticketText - Raw ticket content
- * @param {number} topK - Number of documents to return (default 3)
- * @returns {Array} Array of matched documents with scores
+ * Retrieve top-K relevant documents using cosine similarity over embeddings.
  */
-export function retrieveDocuments(ticketText, topK = 3) {
-  const queryTokens = tokenise(ticketText);
+export async function retrieveDocuments(ticketText, topK = 3) {
+  const [queryVec, articles] = await Promise.all([
+    embed(ticketText),
+    getArticleEmbeddings(),
+  ]);
 
-  if (queryTokens.length === 0) {
-    logger.warn("RAG retrieval: no usable tokens extracted from ticket");
-    return [];
-  }
-
-  const scored = KNOWLEDGE_BASE.map((doc) => ({
-    ...doc,
-    relevanceScore: scoreDoc(doc, queryTokens),
-  }))
-    .filter((doc) => doc.relevanceScore > 0)
+  const scored = articles
+    .map((doc) => ({
+      id: doc.id,
+      category: doc.category,
+      title: doc.title,
+      tags: doc.tags,
+      content: doc.content,
+      relevanceScore: cosineSimilarity(queryVec, doc.embedding),
+    }))
     .sort((a, b) => b.relevanceScore - a.relevanceScore)
     .slice(0, topK);
 
-  logger.info(`RAG retrieval: ${scored.length} documents matched`, {
+  logger.info(`RAG retrieval complete`, {
     topDoc: scored[0]?.title,
-    topScore: scored[0]?.relevanceScore,
+    topScore: scored[0]?.relevanceScore.toFixed(3),
   });
 
   return scored;

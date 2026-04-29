@@ -34,7 +34,7 @@ router.get("/", (req, res) => {
  * @desc   Simulate RAG retrieval for a given query string
  * @query  ?q=<search text>&topK=3
  */
-router.get("/search", (req, res) => {
+router.get("/search", async (req, res, next) => {
   const { q, topK } = req.query;
 
   if (!q || q.trim().length < 3) {
@@ -44,14 +44,12 @@ router.get("/search", (req, res) => {
     });
   }
 
-  const docs = retrieveDocuments(q, parseInt(topK) || 3);
-
-  res.status(200).json({
-    success: true,
-    query: q,
-    count: docs.length,
-    data: docs,
-  });
+  try {
+    const docs = await retrieveDocuments(q, parseInt(topK) || 3);
+    res.status(200).json({ success: true, query: q, count: docs.length, data: docs });
+  } catch (err) {
+    next(err);
+  }
 });
 
 export default router;

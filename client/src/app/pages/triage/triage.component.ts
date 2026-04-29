@@ -67,8 +67,18 @@ const SAMPLES = [
         ></textarea>
 
         <div class="flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <label class="text-xs font-medium text-slate-600">KB documents (top-K):</label>
+          <div class="flex items-center gap-3 flex-wrap">
+            <label class="text-xs font-medium text-slate-600">Model:</label>
+            <div class="flex rounded-lg border border-slate-200 overflow-hidden text-xs font-semibold">
+              @for (m of modelOptions; track m.value) {
+                <button type="button" (click)="model = m.value" [disabled]="loading"
+                  class="px-3 py-1.5 transition-colors"
+                  [class]="model === m.value ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'">
+                  {{ m.label }}
+                </button>
+              }
+            </div>
+            <label class="text-xs font-medium text-slate-600">Top-K:</label>
             <select [(ngModel)]="ragTopK" name="ragTopK" [disabled]="loading"
               class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
               @for (n of [1,2,3,4,5]; track n) {
@@ -237,6 +247,7 @@ const SAMPLES = [
             <h2 class="text-sm font-semibold text-slate-700">Performance Details</h2>
             <div class="ml-auto flex items-center gap-3">
               <span class="text-xs text-slate-500">
+                {{ result.model === 'claude' ? 'Claude Haiku' : 'GPT-3.5 Turbo' }} ·
                 {{ (result.performance.totalLatencyMs / 1000).toFixed(2) }}s ·
                 {{ result.performance.totalTokens | number }} tokens ·
                 {{ '$' + result.performance.totalCostUsd.toFixed(5) }}
@@ -292,7 +303,13 @@ export class TriageComponent {
 
   ticket = '';
   ragTopK = 3;
+  model: 'openai' | 'claude' = 'openai';
   loading = false;
+
+  readonly modelOptions = [
+    { value: 'openai' as const, label: 'GPT-3.5 Turbo' },
+    { value: 'claude' as const, label: 'Claude Haiku' },
+  ];
   stageIndex = -1;
   result: TriageResult | null = null;
   error: string | null = null;
@@ -319,7 +336,7 @@ export class TriageComponent {
     }, 1100);
 
     try {
-      const res = await this.apiService.triageTicket(this.ticket, { ragTopK: this.ragTopK });
+      const res = await this.apiService.triageTicket(this.ticket, { ragTopK: this.ragTopK, model: this.model });
       clearInterval(timer);
       this.stageIndex = STAGES.length;
       this.result = res.data;

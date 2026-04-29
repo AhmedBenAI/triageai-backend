@@ -9,16 +9,19 @@ import { logger } from "./utils/logger.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { initDatabase, getAllTickets } from "./db/database.js";
 import { recordTicket } from "./utils/metrics.js";
+import { initEmbedder } from "./services/ragService.js";
 import triageRoutes from "./routes/triage.js";
 import metricsRoutes from "./routes/metrics.js";
 import ticketsRoutes from "./routes/tickets.js";
 import knowledgeBaseRoutes from "./routes/knowledgeBase.js";
 
 // ── Validate required env vars ─────────────────────────────────────────────
-if (!process.env.OPENAI_API_KEY) {
-  logger.error("OPENAI_API_KEY is not set. Exiting.");
+if (!process.env.OPENAI_API_KEY && !process.env.ANTHROPIC_API_KEY) {
+  logger.error("Neither OPENAI_API_KEY nor ANTHROPIC_API_KEY is set. At least one is required. Exiting.");
   process.exit(1);
 }
+if (!process.env.OPENAI_API_KEY)   logger.warn("OPENAI_API_KEY not set — OpenAI model unavailable");
+if (!process.env.ANTHROPIC_API_KEY) logger.warn("ANTHROPIC_API_KEY not set — Claude model unavailable");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -79,6 +82,11 @@ app.use((req, res) => {
 
 // ── Global error handler ───────────────────────────────────────────────────
 app.use(errorHandler);
+
+// ── Embedding model pre-warm (non-blocking) ───────────────────────────────
+initEmbedder().catch((err) =>
+  logger.warn("Embedding model pre-warm failed", { err: err.message })
+);
 
 // ── Database init + metrics replay ────────────────────────────────────────
 initDatabase();

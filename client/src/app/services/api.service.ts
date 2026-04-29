@@ -7,7 +7,7 @@ import type { Metrics, TriageResult, TicketRecord, KnowledgeBaseDoc } from '../m
 export class ApiService {
   private http = inject(HttpClient);
 
-  triageTicket(ticket: string, options?: { ragTopK?: number }) {
+  triageTicket(ticket: string, options?: { ragTopK?: number; model?: 'openai' | 'claude' }) {
     return firstValueFrom(
       this.http.post<{ success: boolean; data: TriageResult }>('/api/triage', { ticket, options })
     );

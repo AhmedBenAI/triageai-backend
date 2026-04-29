@@ -16,16 +16,16 @@ const metrics = {
   startedAt: new Date().toISOString(),
 };
 
-// Pricing per million tokens (gpt-3.5-turbo)
 const PRICING = {
-  inputPerMillion: 0.5,
-  outputPerMillion: 1.5,
+  openai: { inputPerMillion: 0.50, outputPerMillion: 1.50 },  // gpt-3.5-turbo
+  claude: { inputPerMillion: 0.25, outputPerMillion: 1.25 },  // claude-haiku-4-5
 };
 
-export function calculateCost(inputTokens, outputTokens) {
+export function calculateCost(inputTokens, outputTokens, model = "openai") {
+  const p = PRICING[model] ?? PRICING.openai;
   return (
-    (inputTokens / 1_000_000) * PRICING.inputPerMillion +
-    (outputTokens / 1_000_000) * PRICING.outputPerMillion
+    (inputTokens / 1_000_000) * p.inputPerMillion +
+    (outputTokens / 1_000_000) * p.outputPerMillion
   );
 }
 

@@ -15,6 +15,11 @@ export const validateTicketRequest = [
     .isInt({ min: 1, max: 5 })
     .withMessage("options.ragTopK must be an integer between 1 and 5"),
 
+  body("options.model")
+    .optional()
+    .isIn(["openai", "claude"])
+    .withMessage("options.model must be 'openai' or 'claude'"),
+
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {

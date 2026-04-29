@@ -1,9 +1,14 @@
 import { v4 as uuidv4 } from "uuid";
-import { classifyTicket, draftResponse, evaluateResponse } from "./openaiService.js";
+import * as openaiService from "./openaiService.js";
+import * as claudeService from "./claudeService.js";
 import { retrieveDocuments, formatDocsAsContext } from "./ragService.js";
 import { recordTicket, calculateCost } from "../utils/metrics.js";
 import { saveTicket } from "../db/database.js";
 import { logger } from "../utils/logger.js";
+
+function getService(model) {
+  return model === "claude" ? claudeService : openaiService;
+}
 
 /**
  * Full triage pipeline:
@@ -16,23 +21,25 @@ import { logger } from "../utils/logger.js";
 export async function runTriagePipeline(ticketText, options = {}) {
   const ticketId = uuidv4();
   const pipelineStart = Date.now();
+  const model = options.model === "claude" ? "claude" : "openai";
+  const svc = getService(model);
 
-  logger.info(`Pipeline started`, { ticketId, ticketLength: ticketText.length });
+  logger.info(`Pipeline started`, { ticketId, model, ticketLength: ticketText.length });
 
   // ── Stage 1: Classify ──────────────────────────────────────────────────────
   const stage1Start = Date.now();
-  const { classification, meta: classifyMeta } = await classifyTicket(ticketText);
+  const { classification, meta: classifyMeta } = await svc.classifyTicket(ticketText);
   const stage1Ms = Date.now() - stage1Start;
 
   // ── Stage 2: RAG Retrieval ─────────────────────────────────────────────────
   const stage2Start = Date.now();
-  const retrievedDocs = retrieveDocuments(ticketText, options.ragTopK || 3);
+  const retrievedDocs = await retrieveDocuments(ticketText, options.ragTopK || 3);
   const ragContext = formatDocsAsContext(retrievedDocs);
   const stage2Ms = Date.now() - stage2Start;
 
   // ── Stage 3: Draft Response ────────────────────────────────────────────────
   const stage3Start = Date.now();
-  const { draftResponse: draft, meta: draftMeta } = await draftResponse(
+  const { draftResponse: draft, meta: draftMeta } = await svc.draftResponse(
     ticketText,
     classification,
     ragContext
@@ -41,7 +48,7 @@ export async function runTriagePipeline(ticketText, options = {}) {
 
   // ── Stage 4: Evaluate ──────────────────────────────────────────────────────
   const stage4Start = Date.now();
-  const { evaluation, meta: evalMeta } = await evaluateResponse(ticketText, draft);
+  const { evaluation, meta: evalMeta } = await svc.evaluateResponse(ticketText, draft);
   const stage4Ms = Date.now() - stage4Start;
 
   // ── Aggregate metrics ──────────────────────────────────────────────────────
@@ -76,7 +83,7 @@ export async function runTriagePipeline(ticketText, options = {}) {
     classifyMeta.inputTokens + draftMeta.inputTokens + evalMeta.inputTokens;
   const totalOutputTokens =
     classifyMeta.outputTokens + draftMeta.outputTokens + evalMeta.outputTokens;
-  const totalCostUsd = calculateCost(totalInputTokens, totalOutputTokens);
+  const totalCostUsd = calculateCost(totalInputTokens, totalOutputTokens, model);
 
   // Record to in-memory metrics store
   recordTicket({ latencyMs: totalLatencyMs, stages, classification, evaluation });
@@ -95,6 +102,7 @@ export async function runTriagePipeline(ticketText, options = {}) {
   const result = {
     ticketId,
     timestamp: new Date().toISOString(),
+    model,
     ticket: ticketText,
     classification,
     rag: {

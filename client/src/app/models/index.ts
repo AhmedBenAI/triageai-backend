@@ -52,6 +52,7 @@ export interface Performance {
 export interface TriageResult {
   ticketId: string;
   timestamp: string;
+  model: 'openai' | 'claude';
   ticket: string;
   classification: Classification;
   rag: { docsRetrieved: number; documents: RagDocument[] };

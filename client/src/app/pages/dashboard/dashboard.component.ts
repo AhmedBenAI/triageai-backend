@@ -36,7 +36,7 @@ function formatUptime(s: number): string {
   template: `
     <app-page-header title="Dashboard" subtitle="Real-time pipeline performance and analytics">
       <div class="flex items-center gap-2">
-        <button (click)="loadMetrics()" class="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm hover:bg-slate-50 transition-colors">
+        <button (click)="loadAll()" class="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm hover:bg-slate-50 transition-colors">
           <app-icon name="refresh-cw" [size]="14" /> Refresh
         </button>
         <button (click)="handleReset()" [disabled]="resetting" class="flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 shadow-sm hover:bg-red-50 transition-colors disabled:opacity-50">
@@ -176,7 +176,7 @@ function formatUptime(s: number): string {
                         <app-icon name="alert-triangle" [size]="12" class="ml-1 text-amber-500" />
                       }
                     </td>
-                    <td class="px-4 py-3 text-xs text-slate-600 tabular-nums whitespace-nowrap">${{ t.total_cost_usd.toFixed(5) }}</td>
+                    <td class="px-4 py-3 text-xs text-slate-600 tabular-nums whitespace-nowrap">\${{ t.total_cost_usd.toFixed(5) }}</td>
                     <td class="px-4 py-3 text-xs text-slate-600 tabular-nums whitespace-nowrap">{{ (t.total_latency_ms / 1000).toFixed(1) }}s</td>
                   </tr>
                   @if (expandedTicketId === t.id) {
