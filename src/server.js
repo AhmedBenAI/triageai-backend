@@ -31,9 +31,11 @@ app.use(helmet());
 
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || "*", // Lock this down in production
-    methods: ["GET", "POST", "DELETE"],
+    origin: process.env.CORS_ORIGIN || "*",
+    methods: ["GET", "POST", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   })
 );
 
