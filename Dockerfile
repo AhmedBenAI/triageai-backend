@@ -1,5 +1,5 @@
 # ── Build stage ───────────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
@@ -9,7 +9,7 @@ RUN npm ci --omit=dev
 COPY src/ ./src/
 
 # ── Production stage ───────────────────────────────────────────────────────────
-FROM node:20-alpine AS production
+FROM node:20-slim AS production
 
 # Create non-root user for security
 RUN addgroup -S triageai && adduser -S triageai -G triageai
