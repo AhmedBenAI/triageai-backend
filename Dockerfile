@@ -11,8 +11,8 @@ COPY src/ ./src/
 # ── Production stage ───────────────────────────────────────────────────────────
 FROM node:20-slim AS production
 
-# Create non-root user for security
-RUN addgroup -S triageai && adduser -S triageai -G triageai
+# Create non-root user for security (Debian-style syntax for node:20-slim)
+RUN groupadd --system triageai && useradd --system --gid triageai --no-create-home triageai
 
 WORKDIR /app
 
@@ -29,6 +29,6 @@ USER triageai
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -qO- http://localhost:3000/health || exit 1
+  CMD node -e "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["node", "src/server.js"]
