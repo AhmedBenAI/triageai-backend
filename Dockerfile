@@ -22,7 +22,7 @@ COPY --from=builder /app/src ./src
 COPY package*.json ./
 
 # Create logs directory with correct permissions
-RUN mkdir -p logs && chown -R triageai:triageai /app
+RUN mkdir -p logs data && chown -R triageai:triageai /app
 
 USER triageai
 
